@@ -71,6 +71,12 @@ jobs:
             fi
           done < <(env)
 
+      - name: Force GH CLI login
+        env:
+         GH_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
+        run: echo "$GH_TOKEN" | gh auth login --with-token
+        
+
       - name: List repositories
         env:
           GH_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
