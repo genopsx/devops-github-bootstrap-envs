@@ -73,14 +73,14 @@ jobs:
 
       - name: List repositories
         env:
-          GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
+          GH_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
         run: |
           set -euo pipefail
           gh repo list ${{ matrix.org }} --limit 1000 --json name -q '.[].name' > repos.txt
 
       - name: Create or update environment
         env:
-          GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
+          GH_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
         run: |
           set -euo pipefail
           touch created_env.txt existing_env.txt
@@ -126,7 +126,7 @@ jobs:
               echo "$val" | gh variable set "$var" --repo "${{ matrix.org }}/$repo" --env "$ENV_NAME" --body -
             done
           done < repos.txt
-          
+
       - name: Log Summary
         id: log_summary
         run: |
