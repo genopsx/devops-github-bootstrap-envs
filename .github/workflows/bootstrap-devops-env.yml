@@ -126,18 +126,7 @@ jobs:
               echo "$val" | gh variable set "$var" --repo "${{ matrix.org }}/$repo" --env "$ENV_NAME" --body -
             done
           done < repos.txt
-
-      - name: Log Summary
-        id: log_summary
-        run: |
-          echo "created_envs<<EOF" >> $GITHUB_OUTPUT
-          cat created_env.txt || echo "(none)" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
-          echo "existing_envs<<EOF" >> $GITHUB_OUTPUT
-          cat existing_env.txt || echo "(none)" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
+          
       - name: Log Summary
         id: log_summary
         run: |
@@ -159,7 +148,7 @@ jobs:
           echo "🧹 Cleaning up temporary files..."
           rm -f created_env.txt existing_env.txt repos.txt
           echo "🧹 Cleanup completed."
-          
+
       - name: Send Slack Notification
         if: always()
         uses: slackapi/slack-github-action@v1.25.0
