@@ -71,12 +71,6 @@ jobs:
             fi
           done < <(env)
 
-      - name: Configure GH authentication explicitly
-        env:
-            GH_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
-        run: |
-          gh auth status
-          gh auth setup-git
       - name: Authenticate GH CLI
         env:
          GH_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
@@ -86,10 +80,20 @@ jobs:
 
       - name: List repositories
         env:
-          GH_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
+         GH_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
         run: |
           set -euo pipefail
-          gh repo list ${{ matrix.org }} --limit 1000 --json name -q '.[].name' > repos.txt
+          echo "🔍 Fetching non-archived repositories from '${{ matrix.org }}'..."
+          gh repo list ${{ matrix.org }} \
+            --limit 1000 \
+            --no-archived \
+            --visibility all \
+            --json name \
+            -q '.[].name' > repos.txt
+        
+          echo "✅ Found $(wc -l < repos.txt) repositories:"
+          cat repos.txt
+        
 
       - name: Create or update environment
         env:
