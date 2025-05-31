@@ -73,17 +73,20 @@ jobs:
 
       - name: List repositories
         env:
-         GH_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
+          GH_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
         run: |
           set -euo pipefail
-          echo "🔍 Fetching non-archived repositories from '${{ matrix.org }}'..."
+          echo "🔍 Fetching repositories from '${{ matrix.org }}'..."
           gh repo list ${{ matrix.org }} \
             --limit 1000 \
             --no-archived \
-            --visibility all \
             --json name \
             -q '.[].name' > repos.txt
-        
+    
+          echo "✅ Found $(wc -l < repos.txt) repositories:"
+          cat repos.txt
+    
+    
           echo "✅ Found $(wc -l < repos.txt) repositories:"
           cat repos.txt
         
