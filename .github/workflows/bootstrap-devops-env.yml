@@ -71,6 +71,12 @@ jobs:
             fi
           done < <(env)
 
+      - name: Configure GH authentication explicitly
+        env:
+            GH_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
+        run: |
+          gh auth status
+          gh auth setup-git
       - name: Authenticate GH CLI
         env:
          GH_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
