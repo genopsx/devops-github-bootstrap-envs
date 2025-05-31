@@ -1,0 +1,158 @@
+name: Bootstrap DevOps Environment
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *'  # Runs daily at midnight UTC
+
+jobs:
+  setup-devops-env:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        org: [genopsx]
+
+    permissions:
+      id-token: write
+      contents: read
+      actions: write
+
+    env:
+      ENV_NAME: devops
+      SECRET_MANAGER_NAME: ${{ secrets.DEVOPS_SECRET_MANAGER_NAME }}
+
+    steps:
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ env.DEPLOY_ACCOUNT }}:role/${{ secrets.SECRET_RETRIEVER_ROLE_NAME }}
+          aws-region: ${{ env.PROVISIONER_REGION }}
+          role-session-name: ${{ env.DEPLOYMENT_ROLE_SESSION_NAME }}
+
+      - name: Install AWS CLI
+        uses: unfor19/install-aws-cli-action@v1
+
+      - name: Install GH CLI
+        uses: dev-hanz-ops/install-gh-cli-action@v0.2.0
+
+      - name: Fetch values from centralized secret (secure)
+        id: fetch_secrets
+        run: |
+          set -euo pipefail
+          echo "🔐 Retrieving secret JSON from AWS Secrets Manager: $SECRET_MANAGER_NAME"
+          secret_json=$(aws secretsmanager get-secret-value --secret-id "$SECRET_MANAGER_NAME" --query SecretString --output text) || {
+            echo "❌ Failed to retrieve secret from AWS"
+            exit 1
+          }
+
+          echo "✅ Secret successfully retrieved. Masking values..."
+
+          for key in SEMANTIC_RELEASE_TOKEN GIT_USERNAME REPO_ACCESS_TOKEN PROVISIONER_REGION DEPLOY_ACCOUNT DEPLOYMENT_ROLE_NAME; do
+            val=$(echo "$secret_json" | jq -r ".${key}")
+            echo "::add-mask::$val"
+            echo "$key=$val" >> $GITHUB_ENV
+          done
+
+          echo "✅ Secrets masked and exported to environment."
+
+      - name: List all repositories in org
+        env:
+          GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          echo "📦 Fetching repositories in org: ${{ matrix.org }}"
+          gh repo list ${{ matrix.org }} --limit 1000 --json name -q '.[].name' > repos.txt || {
+            echo "❌ Failed to list repositories."
+            exit 1
+          }
+          echo "✅ Repositories fetched:"
+          cat repos.txt
+
+      - name: Create or update environment
+        env:
+          GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          touch created_env.txt existing_env.txt
+
+          while IFS= read -r repo; do
+            echo ""
+            echo "=============================="
+            echo "🔧 Processing repo: $repo"
+            echo "=============================="
+
+            ## -------------------------------------
+            ## Ensure the environment exists
+            ## -------------------------------------
+            echo "🔍 Checking if '${ENV_NAME}' environment exists in $repo..."
+            if gh api repos/${{ matrix.org }}/$repo/environments/${ENV_NAME} --silent > /dev/null 2>&1; then
+              echo "✅ Environment already exists in $repo"
+              echo "$repo" >> existing_env.txt
+            else
+              echo "🚧 Environment not found. Creating it..."
+              if gh api -X PUT repos/${{ matrix.org }}/$repo/environments/${ENV_NAME}; then
+                echo "✅ Created environment in $repo"
+                echo "$repo" >> created_env.txt
+              else
+                echo "❌ Failed to create environment in $repo"
+                continue
+              fi
+            fi
+
+            ## -----------------------------
+            ## Environment SECRETS overwrite
+            ## -----------------------------
+            echo "🔐 Setting environment secrets..."
+            for key in SEMANTIC_RELEASE_TOKEN GIT_USERNAME REPO_ACCESS_TOKEN; do
+              value="${!key}"
+              echo "  ➤ Setting secret: $key"
+              if echo "$value" | gh secret set "$key" --repo "${{ matrix.org }}/$repo" --env "$ENV_NAME" --body -; then
+                echo "    ✅ $key set successfully"
+              else
+                echo "    ❌ Failed to set $key in $repo"
+              fi
+            done
+
+            ## -----------------------------
+            ## Environment VARIABLES overwrite
+            ## -----------------------------
+            echo "📦 Setting environment variables..."
+            for var in PROVISIONER_REGION DEPLOY_ACCOUNT DEPLOYMENT_ROLE_NAME; do
+              val="${!var}"
+              echo "  ➤ Setting variable: $var"
+              if gh api -X PUT repos/${{ matrix.org }}/$repo/environments/${ENV_NAME}/variables/$var \
+                -f name=$var \
+                -f value="$val"; then
+                echo "    ✅ $var set successfully"
+              else
+                echo "    ❌ Failed to set $var in $repo"
+              fi
+            done
+
+            echo "✅ Finished processing $repo"
+          done < repos.txt
+
+      - name: Log Summary
+        run: |
+          echo ""
+          echo "=============================="
+          echo "📊 Summary of Environment Creation"
+          echo "=============================="
+
+          echo ""
+          echo "✅ Environment '${ENV_NAME}' already existed in the following repositories:"
+          if [ -s existing_env.txt ]; then
+            cat existing_env.txt
+          else
+            echo "(none)"
+          fi
+
+          echo ""
+          echo "🆕 Environment '${ENV_NAME}' was newly created in the following repositories:"
+          if [ -s created_env.txt ]; then
+            cat created_env.txt
+          else
+            echo "(none)"
+          fi
