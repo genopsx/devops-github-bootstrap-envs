@@ -50,7 +50,9 @@ jobs:
         uses: unfor19/install-aws-cli-action@v1
 
       - name: Install GH CLI
-        uses: dev-hanz-ops/install-gh-cli-action@v0.2.0
+        uses: dev-hanz-ops/install-gh-cli-action@v0.2.1
+        with:
+          gh-version: latest
 
       - name: Fetch and set secrets from AWS Secrets Manager
         id: fetch_secrets
