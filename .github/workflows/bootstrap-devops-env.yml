@@ -16,23 +16,32 @@ jobs:
 
     permissions:
       id-token: write
-      contents: read
+      contents: write
       actions: write
+      issues: write
 
     env:
-      DEBUG: true
       ENV_NAME: devops
       SECRET_MANAGER_NAME: ${{ secrets.DEVOPS_SECRET_MANAGER_NAME }}
-      DEPLOY_ACCOUNT: ${{ vars.DEPLOY_ACCOUNT }}
-      PROVISIONER_REGION: ${{ vars.PROVISIONER_REGION }}
+      SLACK_CHANNEL: devops-github-envs-sync
       DEPLOYMENT_ROLE_SESSION_NAME: "bootstrap-devops-env-${{ github.run_id }}"
+
+      # Secret keys
+      SECRET_SEMANTIC_RELEASE_TOKEN:
+      SECRET_GIT_USERNAME:
+      SECRET_REPO_ACCESS_TOKEN:
+
+      # Variable keys
+      VAR_DEPLOY_ACCOUNT:
+      VAR_PROVISIONER_REGION:
+      VAR_DEPLOYMENT_ROLE_NAME:
 
     steps:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::${{ env.DEPLOY_ACCOUNT }}:role/${{ secrets.SECRET_RETRIEVER_ROLE_NAME }}
-          aws-region: ${{ env.PROVISIONER_REGION }}
+          role-to-assume: arn:aws:iam::${{ env.VAR_DEPLOY_ACCOUNT }}:role/${{ secrets.SECRET_RETRIEVER_ROLE_NAME }}
+          aws-region: ${{ env.VAR_PROVISIONER_REGION }}
           role-session-name: ${{ env.DEPLOYMENT_ROLE_SESSION_NAME }}
 
       - name: Install AWS CLI
@@ -41,123 +50,111 @@ jobs:
       - name: Install GH CLI
         uses: dev-hanz-ops/install-gh-cli-action@v0.2.0
 
-      - name: Fetch values from centralized secret (secure)
+      - name: Fetch and set secrets from AWS Secrets Manager
         id: fetch_secrets
         run: |
           set -euo pipefail
           echo "🔐 Retrieving secret JSON from AWS Secrets Manager: $SECRET_MANAGER_NAME"
-          secret_json=$(aws secretsmanager get-secret-value --secret-id "$SECRET_MANAGER_NAME" --query SecretString --output text) || {
-            echo "❌ Failed to retrieve secret from AWS"
-            exit 1
-          }
+          secret_json=$(aws secretsmanager get-secret-value --secret-id "$SECRET_MANAGER_NAME" --query SecretString --output text)
 
-          echo "✅ Secret successfully retrieved. Masking values..."
+          echo "✅ Parsing env keys with prefix 'SECRET_' or 'VAR_'..."
+          while IFS='=' read -r name value; do
+            if [[ "$name" == SECRET_* || "$name" == VAR_* ]]; then
+              json_key="${name#SECRET_}"
+              json_key="${json_key#VAR_}"
+              val=$(echo "$secret_json" | jq -r ".${json_key}")
+              echo "::add-mask::$val"
+              echo "$name=$val" >> $GITHUB_ENV
+            fi
+          done < <(env)
 
-          for key in SEMANTIC_RELEASE_TOKEN GIT_USERNAME REPO_ACCESS_TOKEN PROVISIONER_REGION DEPLOY_ACCOUNT DEPLOYMENT_ROLE_NAME; do
-            val=$(echo "$secret_json" | jq -r ".${key}")
-            echo "::add-mask::$val"
-            echo "$key=$val" >> $GITHUB_ENV
-          done
-
-          echo "✅ Secrets masked and exported to environment."
-
-      - name: List all repositories in org
+      - name: List repositories
         env:
-          GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
+          GITHUB_TOKEN: ${{ env.SECRET_REPO_ACCESS_TOKEN }}
         run: |
           set -euo pipefail
-          echo "📦 Fetching repositories in org: ${{ matrix.org }}"
-          gh repo list ${{ matrix.org }} --limit 1000 --json name -q '.[].name' > repos.txt || {
-            echo "❌ Failed to list repositories."
-            exit 1
-          }
-          echo "✅ Repositories fetched:"
-          cat repos.txt
+          gh repo list ${{ matrix.org }} --limit 1000 --json name -q '.[].name' > repos.txt
 
       - name: Create or update environment
         env:
-          GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
+          GITHUB_TOKEN: ${{ env.SECRET_REPO_ACCESS_TOKEN }}
         run: |
           set -euo pipefail
-
           touch created_env.txt existing_env.txt
 
           while IFS= read -r repo; do
             echo ""
-            echo "=============================="
-            echo "🔧 Processing repo: $repo"
-            echo "=============================="
+            echo "🔧 Processing $repo"
 
             ## -------------------------------------
             ## Ensure the environment exists
             ## -------------------------------------
-            echo "🔍 Checking if '${ENV_NAME}' environment exists in $repo..."
             if gh api repos/${{ matrix.org }}/$repo/environments/${ENV_NAME} --silent > /dev/null 2>&1; then
-              echo "✅ Environment already exists in $repo"
+              echo "✅ Already existed in $repo"
               echo "$repo" >> existing_env.txt
             else
-              echo "🚧 Environment not found. Creating it..."
-              if gh api -X PUT repos/${{ matrix.org }}/$repo/environments/${ENV_NAME}; then
-                echo "✅ Created environment in $repo"
-                echo "$repo" >> created_env.txt
-              else
-                echo "❌ Failed to create environment in $repo"
-                continue
-              fi
+              echo "🚧 Creating environment..."
+              gh api -X PUT repos/${{ matrix.org }}/$repo/environments/${ENV_NAME}
+              echo "$repo" >> created_env.txt
+
+              ## Notify via GitHub Issue
+              gh issue create \
+                --repo "${{ matrix.org }}/$repo" \
+                --title "📦 '${ENV_NAME}' environment bootstrapped" \
+                --body "The '${ENV_NAME}' environment was added with shared secrets and variables from AWS Secrets Manager. Please review the configuration." \
+                --label "automation,env-bootstrap"
             fi
 
             ## -----------------------------
-            ## Environment SECRETS overwrite
+            ## Set environment secrets
             ## -----------------------------
-            echo "🔐 Setting environment secrets..."
-            for key in SEMANTIC_RELEASE_TOKEN GIT_USERNAME REPO_ACCESS_TOKEN; do
-              value="${!key}"
-              echo "  ➤ Setting secret: $key"
-              if echo "$value" | gh secret set "$key" --repo "${{ matrix.org }}/$repo" --env "$ENV_NAME" --body -; then
-                echo "    ✅ $key set successfully"
-              else
-                echo "    ❌ Failed to set $key in $repo"
-              fi
+            for env_var in $(env | grep '^SECRET_' | cut -d= -f1); do
+              key="${env_var#SECRET_}"
+              value="${!env_var}"
+              echo "$value" | gh secret set "$key" --repo "${{ matrix.org }}/$repo" --env "$ENV_NAME" --body -
             done
 
             ## -----------------------------
-            ## Environment VARIABLES overwrite
+            ## Set environment variables
             ## -----------------------------
-            echo "📦 Setting environment variables..."
-            for var in PROVISIONER_REGION DEPLOY_ACCOUNT DEPLOYMENT_ROLE_NAME; do
-              val="${!var}"
-              echo "  ➤ Setting variable: $var"
-              if gh api -X PUT repos/${{ matrix.org }}/$repo/environments/${ENV_NAME}/variables/$var \
+            for env_var in $(env | grep '^VAR_' | cut -d= -f1); do
+              var="${env_var#VAR_}"
+              val="${!env_var}"
+              gh api -X PUT repos/${{ matrix.org }}/$repo/environments/${ENV_NAME}/variables/$var \
                 -f name=$var \
-                -f value="$val"; then
-                echo "    ✅ $var set successfully"
-              else
-                echo "    ❌ Failed to set $var in $repo"
-              fi
+                -f value="$val"
             done
-
-            echo "✅ Finished processing $repo"
           done < repos.txt
 
       - name: Log Summary
+        id: log_summary
         run: |
-          echo ""
-          echo "=============================="
-          echo "📊 Summary of Environment Creation"
-          echo "=============================="
+          echo "created_envs<<EOF" >> $GITHUB_OUTPUT
+          cat created_env.txt || echo "(none)" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
-          echo ""
-          echo "✅ Environment '${ENV_NAME}' already existed in the following repositories:"
-          if [ -s existing_env.txt ]; then
-            cat existing_env.txt
-          else
-            echo "(none)"
-          fi
+          echo "existing_envs<<EOF" >> $GITHUB_OUTPUT
+          cat existing_env.txt || echo "(none)" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
-          echo ""
-          echo "🆕 Environment '${ENV_NAME}' was newly created in the following repositories:"
-          if [ -s created_env.txt ]; then
-            cat created_env.txt
-          else
-            echo "(none)"
-          fi
+      - name: Send Slack Notification
+        if: always()
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          payload: |
+            {
+              "channel": "${{ env.SLACK_CHANNEL }}",
+              "text": "*📢 DevOps Environment Bootstrap Summary*",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": { "type": "mrkdwn", "text": "*✅ '${{ env.ENV_NAME }}' already existed in:* \n\n```${{ steps.log_summary.outputs.existing_envs }}```" }
+                },
+                {
+                  "type": "section",
+                  "text": { "type": "mrkdwn", "text": "*🆕 '${{ env.ENV_NAME }}' was created in:* \n\n```${{ steps.log_summary.outputs.created_envs }}```" }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.DEVOPS_GITHUB_ENVS_SYNC_SLACK_WEBHOOK_URL }}
