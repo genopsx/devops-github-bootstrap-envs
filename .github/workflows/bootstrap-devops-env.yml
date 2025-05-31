@@ -28,7 +28,6 @@ jobs:
       DEPLOY_ACCOUNT: ${{ vars.DEPLOY_ACCOUNT }}
       PROVISIONER_REGION: ${{ vars.PROVISIONER_REGION }}
 
-
       # Secret keys
       SECRET_SEMANTIC_RELEASE_TOKEN:
       SECRET_GIT_USERNAME:
@@ -124,9 +123,7 @@ jobs:
             for env_var in $(env | grep '^VAR_' | cut -d= -f1); do
               var="${env_var#VAR_}"
               val="${!env_var}"
-              gh api -X PUT repos/${{ matrix.org }}/$repo/environments/${ENV_NAME}/variables/$var \
-                -f name=$var \
-                -f value="$val"
+              echo "$val" | gh variable set "$var" --repo "${{ matrix.org }}/$repo" --env "$ENV_NAME" --body -
             done
           done < repos.txt
 
@@ -141,6 +138,28 @@ jobs:
           cat existing_env.txt || echo "(none)" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
+      - name: Log Summary
+        id: log_summary
+        run: |
+          echo "📦 Logging created environments..."
+          created=$(cat created_env.txt 2>/dev/null || echo "(none)")
+          existing=$(cat existing_env.txt 2>/dev/null || echo "(none)")
+    
+          echo "created_envs<<EOF" >> $GITHUB_OUTPUT
+          echo "$created" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+    
+          echo "existing_envs<<EOF" >> $GITHUB_OUTPUT
+          echo "$existing" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          echo "📦 Summary logged successfully."
+
+      - name: Cleanup temporary files
+        run: |
+          echo "🧹 Cleaning up temporary files..."
+          rm -f created_env.txt existing_env.txt repos.txt
+          echo "🧹 Cleanup completed."
+          
       - name: Send Slack Notification
         if: always()
         uses: slackapi/slack-github-action@v1.25.0
@@ -148,15 +167,15 @@ jobs:
           payload: |
             {
               "channel": "${{ env.SLACK_CHANNEL }}",
-              "text": "*📢 DevOps Environment Bootstrap Summary*",
+              "text": "*\uD83D\uDCE2 DevOps Environment Bootstrap Summary*",
               "blocks": [
                 {
                   "type": "section",
-                  "text": { "type": "mrkdwn", "text": "*✅ '${{ env.ENV_NAME }}' already existed in:* \n\n```${{ steps.log_summary.outputs.existing_envs }}```" }
+                  "text": { "type": "mrkdwn", "text": "*\u2705 '${{ env.ENV_NAME }}' already existed in:* \n\n\"\"\"${{ steps.log_summary.outputs.existing_envs }}\"\"\"" }
                 },
                 {
                   "type": "section",
-                  "text": { "type": "mrkdwn", "text": "*🆕 '${{ env.ENV_NAME }}' was created in:* \n\n```${{ steps.log_summary.outputs.created_envs }}```" }
+                  "text": { "type": "mrkdwn", "text": "*\uD83D\uDD01 '${{ env.ENV_NAME }}' was created in:* \n\n\"\"\"${{ steps.log_summary.outputs.created_envs }}\"\"\"" }
                 }
               ]
             }
