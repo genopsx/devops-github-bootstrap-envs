@@ -56,6 +56,7 @@ jobs:
       - name: Fetch and set secrets from AWS Secrets Manager
         id: fetch_secrets
         run: |
+          echo "DEBUG: SECRET_MANAGER_NAME='$SECRET_MANAGER_NAME'"
           set -euo pipefail
           echo "🔐 Retrieving secret JSON from AWS Secrets Manager: $SECRET_MANAGER_NAME"
           secret_json=$(aws secretsmanager get-secret-value --secret-id "$SECRET_MANAGER_NAME" --query SecretString --output text)
