@@ -52,7 +52,7 @@ jobs:
       - name: Install GH CLI
         uses: dev-hanz-ops/install-gh-cli-action@v0.2.1
         with:
-          gh-cli-version: latest
+          gh-cli-version: 2.65.0 
 
       - name: Fetch and set secrets from AWS Secrets Manager
         id: fetch_secrets
