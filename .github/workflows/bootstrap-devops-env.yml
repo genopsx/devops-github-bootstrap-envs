@@ -181,49 +181,52 @@ jobs:
       - name: Log Summary
         id: log_summary
         run: |
-          echo "📦 Logging DevOps environment and team summary..."
-
+          echo "📦 Logging created environments..."
+      
           make_links() {
-            if [ -f "$1" ] && [ -s "$1" ]; then
-              awk '{ printf "<https://github.com/genopsx/%s|%s>\n", $1, $1 }' "$1"
+            if [ -f "$1" ]; then
+              awk '{print "<https://github.com/genopsx/" $1 "|"$1">"}' "$1"
             else
               echo "(none)"
             fi
           }
-
+      
+          created=$(make_links created_env.txt)
+          existing=$(make_links existing_env.txt)
+          admin_updated=$(make_links updated_admin_team.txt)
+          admin_created=$(make_links created_admin_team.txt)
+          admin_ok=$(make_links ok_admin_team.txt)
+      
           echo "created_envs<<EOF" >> $GITHUB_OUTPUT
-          make_links created_env.txt >> $GITHUB_OUTPUT
+          echo "$created" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
-
+      
           echo "existing_envs<<EOF" >> $GITHUB_OUTPUT
-          make_links existing_env.txt >> $GITHUB_OUTPUT
+          echo "$existing" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
-
+      
           echo "admin_team_updated<<EOF" >> $GITHUB_OUTPUT
-          make_links updated_admin_team.txt >> $GITHUB_OUTPUT
+          echo "$admin_updated" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
-
+      
           echo "admin_team_created<<EOF" >> $GITHUB_OUTPUT
-          if [ -s created_admin_team.txt ]; then
-            echo "'admins' team created for all repos." >> $GITHUB_OUTPUT
-          else
-            echo "(none)" >> $GITHUB_OUTPUT
-          fi
+          echo "$admin_created" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
-
+      
           echo "admin_team_ok<<EOF" >> $GITHUB_OUTPUT
-          make_links ok_admin_team.txt >> $GITHUB_OUTPUT
+          echo "$admin_ok" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
+      
+          echo "📦 Summary logged successfully."
+             
   
         
-        
-  
       - name: Cleanup temporary files
         run: |
           echo "🧹 Cleaning up temporary files..."
           rm -f created_env.txt existing_env.txt repos.txt updated_admin_team.txt
           echo "🧹 Cleanup completed."
-  
+
       - name: Send Slack Notification
         if: always()
         uses: slackapi/slack-github-action@v2.0.0
@@ -232,20 +235,20 @@ jobs:
           webhook: ${{ secrets.DEVOPS_GITHUB_ENVS_SYNC_SLACK_WEBHOOK_URL }}
           payload: |
             {
-              "text": "📢 DevOps Environment Bootstrap Summary",
+              "text": "*📢 DevOps Environment Bootstrap Summary*",
               "blocks": [
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "*✅ '${{ env.ENV_NAME }}' already existed in:*\n```" + "${{ steps.log_summary.outputs.existing_envs }}" + "```"
+                    "text": "*✅ \"${{ env.ENV_NAME }} already existed\":*\n```\n${{ steps.log_summary.outputs.existing_envs }}\n```"
                   }
                 },
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "*🆕 '${{ env.ENV_NAME }}' was created in:*\n```" + "${{ steps.log_summary.outputs.created_envs }}" + "```"
+                    "text": "*🆕 \"${{ env.ENV_NAME }} was created\":*\n```\n${{ steps.log_summary.outputs.created_envs }}\n```"
                   }
                 },
                 {
@@ -255,32 +258,33 @@ jobs:
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": ":silhouettes: *'admins' team access updated:*"
+                    "text": "*👥 'admins' team access updated:*"
                   }
                 },
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": ":arrows_counterclockwise: *Role updated in:*\n```" + "${{ steps.log_summary.outputs.admin_team_updated }}" + "```"
+                    "text": "*🔁 Role updated in:*\n```\n${{ steps.log_summary.outputs.admin_team_updated }}\n```"
                   }
                 },
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": ":new: *'admins' team created in:*\n```" + "${{ steps.log_summary.outputs.admin_team_created }}" + "```"
+                    "text": "*🆕 Created in:*\n```\n${{ steps.log_summary.outputs.admin_team_created }}\n```"
                   }
                 },
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": ":white_check_mark: *Already existed with correct role in:*\n```" + "${{ steps.log_summary.outputs.admin_team_ok }}" + "```"
+                    "text": "*✅ Already existed with correct role in:*\n```\n${{ steps.log_summary.outputs.admin_team_ok }}\n```"
                   }
                 }
               ]
             }
+        
         
         
         
