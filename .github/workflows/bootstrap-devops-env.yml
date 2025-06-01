@@ -22,7 +22,7 @@ jobs:
 
     env:
       ENV_NAME: devops
-      DEVOPS_SECRET_MANAGER_NAME: ${{ secrets.DEVOPS_DEVOPS_SECRET_MANAGER_NAME }}
+      DEVOPS_SECRET_MANAGER_NAME: ${{ secrets.DEVOPS_SECRET_MANAGER_NAME }}
       SLACK_CHANNEL: devops-github-envs-sync
       DEPLOYMENT_ROLE_SESSION_NAME: "bootstrap-devops-env-${{ github.run_id }}"
       ACCOUNT: ${{ vars.ACCOUNT }}
