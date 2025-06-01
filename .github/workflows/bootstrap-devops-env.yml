@@ -230,22 +230,22 @@ jobs:
         with:
           webhook-type: incoming-webhook
           webhook: ${{ secrets.DEVOPS_GITHUB_ENVS_SYNC_SLACK_WEBHOOK_URL }}
-          payload: |
+          payload: >-
             {
-              "text": "*📢 DevOps Environment Bootstrap Summary*",
+              "text": "📢 DevOps Environment Bootstrap Summary",
               "blocks": [
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "*✅ \"${{ env.ENV_NAME }} already existed\":*\n```" + "${{ steps.log_summary.outputs.existing_envs }}" + "```"
+                    "text": "*✅ '${{ env.ENV_NAME }}' already existed in:*\n```{{ steps.log_summary.outputs.existing_envs }}```"
                   }
                 },
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "*🆕 \"${{ env.ENV_NAME }} was created\":*\n```" + "${{ steps.log_summary.outputs.created_envs }}" + "```"
+                    "text": "*🆕 '${{ env.ENV_NAME }}' was created in:*\n```{{ steps.log_summary.outputs.created_envs }}```"
                   }
                 },
                 {
@@ -262,25 +262,25 @@ jobs:
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": ":arrows_counterclockwise: *Role updated in:*\n```" + "${{ steps.log_summary.outputs.admin_team_updated }}" + "```"
+                    "text": ":arrows_counterclockwise: *Role updated in:*\n```{{ steps.log_summary.outputs.admin_team_updated }}```"
                   }
                 },
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": ":new: *Created in:*\n```" + "${{ steps.log_summary.outputs.admin_team_created }}" + "```"
+                    "text": ":new: *'admins' team created in:*\n```{{ steps.log_summary.outputs.admin_team_created }}```"
                   }
                 },
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": ":white_check_mark: *Already existed with correct role in:*\n```" + "${{ steps.log_summary.outputs.admin_team_ok }}" + "```"
+                    "text": ":white_check_mark: *Already existed with correct role in:*\n```{{ steps.log_summary.outputs.admin_team_ok }}```"
                   }
                 }
               ]
-            }
+            }        
         
         
         
