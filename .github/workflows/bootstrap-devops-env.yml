@@ -178,15 +178,16 @@ jobs:
         run: |
           echo "📦 Logging DevOps environment and team summary..."
       
+          # Helper: Format repo names into Slack links, one per line
           make_links() {
             if [ -f "$1" ] && [ -s "$1" ]; then
-              awk '{print "<https://github.com/genopsx/" $1 "|"$1">"}' "$1"
+              awk '{ print "<https://github.com/genopsx/" $1 "|" $1 ">" }' "$1"
             else
               echo "(none)"
             fi
           }
       
-          # Collect formatted outputs
+          # Collect formatted link lists
           created_envs=$(make_links created_env.txt)
           existing_envs=$(make_links existing_env.txt)
       
@@ -194,7 +195,7 @@ jobs:
           admin_team_created=$(make_links created_admin_team.txt)
           admin_team_ok=$(make_links ok_admin_team.txt)
       
-          # Export to GitHub Actions outputs
+          # Export as GitHub Actions outputs
           echo "created_envs<<EOF" >> $GITHUB_OUTPUT
           echo "$created_envs" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
@@ -216,6 +217,7 @@ jobs:
           echo "EOF" >> $GITHUB_OUTPUT
       
           echo "✅ Summary logged successfully."
+        
         
         
   
