@@ -177,23 +177,43 @@ jobs:
         id: log_summary
         run: |
           echo "📦 Logging created environments..."
-          created=$(cat created_env.txt 2>/dev/null || echo "(none)")
-          existing=$(cat existing_env.txt 2>/dev/null || echo "(none)")
-          admin_updated=$(cat updated_admin_team.txt 2>/dev/null || echo "(none)")
-
+      
+          make_links() {
+            if [ -f "$1" ]; then
+              awk '{print "<https://github.com/genopsx/" $1 "|"$1">"}' "$1"
+            else
+              echo "(none)"
+            fi
+          }
+      
+          created=$(make_links created_env.txt)
+          existing=$(make_links existing_env.txt)
+          admin_updated=$(make_links updated_admin_team.txt)
+          admin_created=$(make_links created_admin_team.txt)
+          admin_ok=$(make_links ok_admin_team.txt)
+      
           echo "created_envs<<EOF" >> $GITHUB_OUTPUT
           echo "$created" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
-
+      
           echo "existing_envs<<EOF" >> $GITHUB_OUTPUT
           echo "$existing" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
-
+      
           echo "admin_team_updated<<EOF" >> $GITHUB_OUTPUT
           echo "$admin_updated" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
-
+      
+          echo "admin_team_created<<EOF" >> $GITHUB_OUTPUT
+          echo "$admin_created" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+      
+          echo "admin_team_ok<<EOF" >> $GITHUB_OUTPUT
+          echo "$admin_ok" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+      
           echo "📦 Summary logged successfully."
+        
   
       - name: Cleanup temporary files
         run: |
@@ -215,23 +235,48 @@ jobs:
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "*✅ '${{ env.ENV_NAME }}' already existed in:*\n\n${{ steps.log_summary.outputs.existing_envs }}"
+                    "text": "*✅ \"${{ env.ENV_NAME }} already existed\":*\n```\n${{ steps.log_summary.outputs.existing_envs }}\n```"
                   }
                 },
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "*🆕 '${{ env.ENV_NAME }}' was created in:*\n\n${{ steps.log_summary.outputs.created_envs }}"
+                    "text": "*🆕 \"${{ env.ENV_NAME }} was created\":*\n```\n${{ steps.log_summary.outputs.created_envs }}\n```"
+                  }
+                },
+                {
+                  "type": "divider"
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*👥 'admins' team access updated:*"
                   }
                 },
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "*👥 'admins' team updated access in:*\n\n${{ steps.log_summary.outputs.admin_team_updated }}"
+                    "text": "*🔁 Role updated in:*\n```\n${{ steps.log_summary.outputs.admin_team_updated }}\n```"
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*🆕 Created in:*\n```\n${{ steps.log_summary.outputs.admin_team_created }}\n```"
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*✅ Already existed with correct role in:*\n```\n${{ steps.log_summary.outputs.admin_team_ok }}\n```"
                   }
                 }
               ]
             }
+        
         
