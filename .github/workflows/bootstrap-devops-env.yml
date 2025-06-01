@@ -177,10 +177,10 @@ jobs:
         run: |
           echo "📦 Logging DevOps environment and team summary..."
       
-          # Helper: Format repo names into Slack links, one per line
+          # Helper: Format repo names as Slack markdown links, one per line
           make_links() {
             if [ -f "$1" ] && [ -s "$1" ]; then
-              awk '{ print "<https://github.com/genopsx/" $1 "|" $1 ">" }' "$1"
+              awk '{ printf "<https://github.com/genopsx/%s|%s>\n", $1, $1 }' "$1"
             else
               echo "(none)"
             fi
@@ -217,6 +217,7 @@ jobs:
       
           echo "✅ Summary logged successfully."
         
+        
   
       - name: Cleanup temporary files
         run: |
@@ -238,14 +239,14 @@ jobs:
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "*✅ \"${{ env.ENV_NAME }} already existed\":*\n```${{ steps.log_summary.outputs.existing_envs }}```"
+                    "text": "*✅ \"${{ env.ENV_NAME }} already existed\":*\n```" + "${{ steps.log_summary.outputs.existing_envs }}" + "```"
                   }
                 },
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "*🆕 \"${{ env.ENV_NAME }} was created\":*\n```${{ steps.log_summary.outputs.created_envs }}```"
+                    "text": "*🆕 \"${{ env.ENV_NAME }} was created\":*\n```" + "${{ steps.log_summary.outputs.created_envs }}" + "```"
                   }
                 },
                 {
@@ -262,25 +263,26 @@ jobs:
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": ":arrows_counterclockwise: *Role updated in:*\n```${{ steps.log_summary.outputs.admin_team_updated }}```"
+                    "text": ":arrows_counterclockwise: *Role updated in:*\n```" + "${{ steps.log_summary.outputs.admin_team_updated }}" + "```"
                   }
                 },
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": ":new: *Created in:*\n```${{ steps.log_summary.outputs.admin_team_created }}```"
+                    "text": ":new: *Created in:*\n```" + "${{ steps.log_summary.outputs.admin_team_created }}" + "```"
                   }
                 },
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": ":white_check_mark: *Already existed with correct role in:*\n```${{ steps.log_summary.outputs.admin_team_ok }}```"
+                    "text": ":white_check_mark: *Already existed with correct role in:*\n```" + "${{ steps.log_summary.outputs.admin_team_ok }}" + "```"
                   }
                 }
               ]
             }
+        
         
         
         
