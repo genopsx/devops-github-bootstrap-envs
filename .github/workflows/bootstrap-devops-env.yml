@@ -118,7 +118,7 @@ jobs:
 
           done < repos.txt
         env:
-          GH_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
+          GH_TOKEN: ${{ secrets.ORG_OWNER_ACCESS_TOKEN }}
 
       - name: Create or update environment
         env:
