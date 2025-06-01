@@ -25,8 +25,8 @@ jobs:
       SECRET_MANAGER_NAME: ${{ secrets.DEVOPS_SECRET_MANAGER_NAME }}
       SLACK_CHANNEL: devops-github-envs-sync
       DEPLOYMENT_ROLE_SESSION_NAME: "bootstrap-devops-env-${{ github.run_id }}"
-      DEPLOY_ACCOUNT: ${{ vars.DEPLOY_ACCOUNT }}
-      PROVISIONER_REGION: ${{ vars.PROVISIONER_REGION }}
+      ACCOUNT: ${{ vars.ACCOUNT }}
+      REGION: eu-west-1
 
       # Secret keys
       SECRET_SEMANTIC_RELEASE_TOKEN:
@@ -42,8 +42,8 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::${{ env.DEPLOY_ACCOUNT }}:role/${{ secrets.SECRET_RETRIEVER_ROLE_NAME }}
-          aws-region: ${{ env.PROVISIONER_REGION }}
+          role-to-assume: arn:aws:iam::${{ env.ACCOUNT }}:role/${{ secrets.SECRET_RETRIEVER_ROLE_NAME }}
+          aws-region: ${{ env.REGION }}
           role-session-name: ${{ env.DEPLOYMENT_ROLE_SESSION_NAME }}
 
       - name: Install AWS CLI
