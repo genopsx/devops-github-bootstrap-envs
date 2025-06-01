@@ -22,7 +22,7 @@ jobs:
 
     env:
       ENV_NAME: devops
-      SECRET_MANAGER_NAME: ${{ secrets.DEVOPS_SECRET_MANAGER_NAME }}
+      DEVOPS_SECRET_MANAGER_NAME: ${{ secrets.DEVOPS_DEVOPS_SECRET_MANAGER_NAME }}
       SLACK_CHANNEL: devops-github-envs-sync
       DEPLOYMENT_ROLE_SESSION_NAME: "bootstrap-devops-env-${{ github.run_id }}"
       ACCOUNT: ${{ vars.ACCOUNT }}
@@ -57,10 +57,10 @@ jobs:
       - name: Fetch and set secrets from AWS Secrets Manager
         id: fetch_secrets
         run: |
-          echo "DEBUG: SECRET_MANAGER_NAME='$SECRET_MANAGER_NAME'"
+          echo "DEBUG: DEVOPS_SECRET_MANAGER_NAME='$DEVOPS_SECRET_MANAGER_NAME'"
           set -euo pipefail
-          echo "🔐 Retrieving secret JSON from AWS Secrets Manager: $SECRET_MANAGER_NAME"
-          secret_json=$(aws secretsmanager get-secret-value --secret-id "$SECRET_MANAGER_NAME" --query SecretString --output text)
+          echo "🔐 Retrieving secret JSON from AWS Secrets Manager: $DEVOPS_SECRET_MANAGER_NAME"
+          secret_json=$(aws secretsmanager get-secret-value --secret-id "$DEVOPS_SECRET_MANAGER_NAME" --query SecretString --output text)
       
           echo "✅ Parsing env keys with prefix 'SECRET_' or 'VAR_'..."
           while IFS='=' read -r name value; do
@@ -212,17 +212,27 @@ jobs:
               "blocks": [
                 {
                   "type": "section",
-                  "text": { "type": "mrkdwn", "text": "*✅ '${{ env.ENV_NAME }}' already existed in:* \n\n\n\"\"\"${{ steps.log_summary.outputs.existing_envs }}\"\"\"" }
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*✅ '${{ env.ENV_NAME }}' already existed in:*\n\n${{ steps.log_summary.outputs.existing_envs }}"
+                  }
                 },
                 {
                   "type": "section",
-                  "text": { "type": "mrkdwn", "text": "*🆕 '${{ env.ENV_NAME }}' was created in:* \n\n\n\"\"\"${{ steps.log_summary.outputs.created_envs }}\"\"\"" }
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*🆕 '${{ env.ENV_NAME }}' was created in:*\n\n${{ steps.log_summary.outputs.created_envs }}"
+                  }
                 },
                 {
                   "type": "section",
-                  "text": { "type": "mrkdwn", "text": "*👥 'admins' team updated access in:* \n\n\n\"\"\"${{ steps.log_summary.outputs.admin_team_updated }}\"\"\"" }
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*👥 'admins' team updated access in:*\n\n${{ steps.log_summary.outputs.admin_team_updated }}"
+                  }
                 }
               ]
             }
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.DEVOPS_GITHUB_ENVS_SYNC_SLACK_WEBHOOK_URL }}
+        
