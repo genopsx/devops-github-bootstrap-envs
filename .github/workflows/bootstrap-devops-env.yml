@@ -54,6 +54,8 @@ jobs:
         with:
           gh-cli-version: 2.65.0 
 
+
+
       - name: Fetch and set secrets from AWS Secrets Manager
         id: fetch_secrets
         run: |
@@ -92,7 +94,29 @@ jobs:
     
           echo "✅ Found $(wc -l < repos.txt) repositories:"
           cat repos.txt
-        
+
+      - name: Ensure 'admins' team has admin access to all repositories
+        run: |
+          set -euo pipefail
+          touch updated_admin_team.txt
+
+          while IFS= read -r repo; do
+            echo "👥 Ensuring 'admins' team has admin access to $repo"
+            if gh api orgs/${{ matrix.org }}/teams/admins --silent > /dev/null 2>&1; then
+              echo "✅ 'admins' team exists"
+            else
+              echo "➕ Creating 'admins' team"
+              gh api -X POST orgs/${{ matrix.org }}/teams -f name=admins
+            fi
+
+            echo "🔁 Setting 'admins' role to admin in $repo"
+            gh api -X PUT \
+              orgs/${{ matrix.org }}/teams/admins/repos/${{ matrix.org }}/$repo \
+              -f permission=admin
+
+            echo "$repo" >> updated_admin_team.txt
+
+          done < repos.txt
 
       - name: Create or update environment
         env:
@@ -149,22 +173,28 @@ jobs:
           echo "📦 Logging created environments..."
           created=$(cat created_env.txt 2>/dev/null || echo "(none)")
           existing=$(cat existing_env.txt 2>/dev/null || echo "(none)")
-    
+          admin_updated=$(cat updated_admin_team.txt 2>/dev/null || echo "(none)")
+
           echo "created_envs<<EOF" >> $GITHUB_OUTPUT
           echo "$created" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
-    
+
           echo "existing_envs<<EOF" >> $GITHUB_OUTPUT
           echo "$existing" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
-          echo "📦 Summary logged successfully."
 
+          echo "admin_team_updated<<EOF" >> $GITHUB_OUTPUT
+          echo "$admin_updated" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+          echo "📦 Summary logged successfully."
+  
       - name: Cleanup temporary files
         run: |
           echo "🧹 Cleaning up temporary files..."
-          rm -f created_env.txt existing_env.txt repos.txt
+          rm -f created_env.txt existing_env.txt repos.txt updated_admin_team.txt
           echo "🧹 Cleanup completed."
-
+  
       - name: Send Slack Notification
         if: always()
         uses: slackapi/slack-github-action@v1.25.0
@@ -172,15 +202,19 @@ jobs:
           payload: |
             {
               "channel": "${{ env.SLACK_CHANNEL }}",
-              "text": "*\uD83D\uDCE2 DevOps Environment Bootstrap Summary*",
+              "text": "*📢 DevOps Environment Bootstrap Summary*",
               "blocks": [
                 {
                   "type": "section",
-                  "text": { "type": "mrkdwn", "text": "*\u2705 '${{ env.ENV_NAME }}' already existed in:* \n\n\"\"\"${{ steps.log_summary.outputs.existing_envs }}\"\"\"" }
+                  "text": { "type": "mrkdwn", "text": "*✅ '${{ env.ENV_NAME }}' already existed in:* \n\n\n\"\"\"${{ steps.log_summary.outputs.existing_envs }}\"\"\"" }
                 },
                 {
                   "type": "section",
-                  "text": { "type": "mrkdwn", "text": "*\uD83D\uDD01 '${{ env.ENV_NAME }}' was created in:* \n\n\"\"\"${{ steps.log_summary.outputs.created_envs }}\"\"\"" }
+                  "text": { "type": "mrkdwn", "text": "*🆕 '${{ env.ENV_NAME }}' was created in:* \n\n\n\"\"\"${{ steps.log_summary.outputs.created_envs }}\"\"\"" }
+                },
+                {
+                  "type": "section",
+                  "text": { "type": "mrkdwn", "text": "*👥 'admins' team updated access in:* \n\n\n\"\"\"${{ steps.log_summary.outputs.admin_team_updated }}\"\"\"" }
                 }
               ]
             }
