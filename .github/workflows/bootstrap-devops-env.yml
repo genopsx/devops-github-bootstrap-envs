@@ -90,28 +90,34 @@ jobs:
           cat repos.txt
       
       - name: Ensure 'admins' team has admin access to all repositories
-        run: |
-          set -euo pipefail
-          touch updated_admin_team.txt
-      
-          while IFS= read -r repo; do
-            echo "👥 Ensuring 'admins' team has admin access to $repo"
-            if gh api orgs/${{ matrix.org }}/teams/admins --silent > /dev/null 2>&1; then
-              echo "✅ 'admins' team exists"
-            else
-              echo "➕ Creating 'admins' team"
-              gh api -X POST orgs/${{ matrix.org }}/teams -f name=admins
-            fi
-      
-            echo "🔁 Setting 'admins' role to admin in $repo"
-            gh api -X PUT \
-              orgs/${{ matrix.org }}/teams/admins/repos/${{ matrix.org }}/$repo \
-              -f permission=admin
-      
-            echo "$repo" >> updated_admin_team.txt
-          done < repos.txt
         env:
           GH_TOKEN: ${{ secrets.ORG_OWNER_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          touch updated_admin_team.txt created_admin_team.txt ok_admin_team.txt
+
+          # Ensure team exists
+          if gh api orgs/${{ matrix.org }}/teams/admins --silent > /dev/null 2>&1; then
+            echo "✅ 'admins' team exists"
+          else
+            echo "➕ Creating 'admins' team"
+            gh api -X POST orgs/${{ matrix.org }}/teams -f name=admins
+            echo "ALL_REPOS" >> created_admin_team.txt
+          fi
+
+          while IFS= read -r repo; do
+            echo "🔍 Checking permission for 'admins' in $repo"
+            current_perm=$(gh api orgs/${{ matrix.org }}/teams/admins/repos/${{ matrix.org }}/$repo --jq .permission 2>/dev/null || echo none)
+
+            if [[ "$current_perm" == "admin" ]]; then
+              echo "✅ Already has admin role in $repo"
+              echo "$repo" >> ok_admin_team.txt
+            else
+              echo "🔁 Setting admin role in $repo"
+              gh api -X PUT orgs/${{ matrix.org }}/teams/admins/repos/${{ matrix.org }}/$repo -f permission=admin
+              echo "$repo" >> updated_admin_team.txt
+            fi
+          done < repos.txt
       
       - name: Create or update environment
         env:
@@ -176,8 +182,7 @@ jobs:
         id: log_summary
         run: |
           echo "📦 Logging DevOps environment and team summary..."
-      
-          # Helper: Format repo names as Slack markdown links, one per line
+
           make_links() {
             if [ -f "$1" ] && [ -s "$1" ]; then
               awk '{ printf "<https://github.com/genopsx/%s|%s>\n", $1, $1 }' "$1"
@@ -185,37 +190,31 @@ jobs:
               echo "(none)"
             fi
           }
-      
-          # Format each category
-          created_envs=$(make_links created_env.txt)
-          existing_envs=$(make_links existing_env.txt)
-      
-          admin_team_updated=$(make_links updated_admin_team.txt)
-          admin_team_created=$(make_links created_admin_team.txt)
-          admin_team_ok=$(make_links ok_admin_team.txt)
-      
-          # Export to GitHub Actions outputs
+
           echo "created_envs<<EOF" >> $GITHUB_OUTPUT
-          echo "$created_envs" >> $GITHUB_OUTPUT
+          make_links created_env.txt >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
-      
+
           echo "existing_envs<<EOF" >> $GITHUB_OUTPUT
-          echo "$existing_envs" >> $GITHUB_OUTPUT
+          make_links existing_env.txt >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
-      
+
           echo "admin_team_updated<<EOF" >> $GITHUB_OUTPUT
-          echo "$admin_team_updated" >> $GITHUB_OUTPUT
+          make_links updated_admin_team.txt >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
-      
+
           echo "admin_team_created<<EOF" >> $GITHUB_OUTPUT
-          echo "$admin_team_created" >> $GITHUB_OUTPUT
+          if [ -s created_admin_team.txt ]; then
+            echo "'admins' team created for all repos." >> $GITHUB_OUTPUT
+          else
+            echo "(none)" >> $GITHUB_OUTPUT
+          fi
           echo "EOF" >> $GITHUB_OUTPUT
-      
+
           echo "admin_team_ok<<EOF" >> $GITHUB_OUTPUT
-          echo "$admin_team_ok" >> $GITHUB_OUTPUT
+          make_links ok_admin_team.txt >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
-      
-          echo "✅ Summary logged successfully."
+  
         
         
   
