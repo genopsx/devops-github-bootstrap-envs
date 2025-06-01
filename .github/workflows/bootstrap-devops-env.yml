@@ -241,14 +241,14 @@ jobs:
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "*✅ \"${{ env.ENV_NAME }} already existed\":*\n```\n${{ steps.log_summary.outputs.existing_envs }}\n```"
+                    "text": "*✅ \"${{ env.ENV_NAME }} already existed\":*\n${{ steps.log_summary.outputs.existing_envs }}"
                   }
                 },
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "*🆕 \"${{ env.ENV_NAME }} was created\":*\n```\n${{ steps.log_summary.outputs.created_envs }}\n```"
+                    "text": "*🆕 \"${{ env.ENV_NAME }} was created\":*\n${{ steps.log_summary.outputs.created_envs }}"
                   }
                 },
                 {
@@ -265,25 +265,26 @@ jobs:
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "*🔁 Role updated in:*\n```\n${{ steps.log_summary.outputs.admin_team_updated }}\n```"
+                    "text": "*🔁 Role updated in:*\n${{ steps.log_summary.outputs.admin_team_updated }}"
                   }
                 },
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "*🆕 Created in:*\n```\n${{ steps.log_summary.outputs.admin_team_created }}\n```"
+                    "text": "*🆕 Created in:*\n${{ steps.log_summary.outputs.admin_team_created }}"
                   }
                 },
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "*✅ Already existed with correct role in:*\n```\n${{ steps.log_summary.outputs.admin_team_ok }}\n```"
+                    "text": "*✅ Already existed with correct role in:*\n${{ steps.log_summary.outputs.admin_team_ok }}"
                   }
                 }
               ]
             }
+        
         
         
         
