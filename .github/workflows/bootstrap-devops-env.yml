@@ -117,6 +117,8 @@ jobs:
             echo "$repo" >> updated_admin_team.txt
 
           done < repos.txt
+        env:
+          GH_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
 
       - name: Create or update environment
         env:
