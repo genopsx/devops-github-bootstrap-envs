@@ -172,7 +172,6 @@ jobs:
             done
           done < repos.txt
         
-
       - name: Log Summary
         id: log_summary
         run: |
@@ -187,7 +186,7 @@ jobs:
             fi
           }
       
-          # Collect formatted link lists
+          # Format each category
           created_envs=$(make_links created_env.txt)
           existing_envs=$(make_links existing_env.txt)
       
@@ -195,7 +194,7 @@ jobs:
           admin_team_created=$(make_links created_admin_team.txt)
           admin_team_ok=$(make_links ok_admin_team.txt)
       
-          # Export as GitHub Actions outputs
+          # Export to GitHub Actions outputs
           echo "created_envs<<EOF" >> $GITHUB_OUTPUT
           echo "$created_envs" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
@@ -218,8 +217,6 @@ jobs:
       
           echo "✅ Summary logged successfully."
         
-        
-        
   
       - name: Cleanup temporary files
         run: |
@@ -241,14 +238,14 @@ jobs:
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "*✅ \"${{ env.ENV_NAME }} already existed\":*\n${{ steps.log_summary.outputs.existing_envs }}"
+                    "text": "*✅ \"${{ env.ENV_NAME }} already existed\":*\n```\\n${{ steps.log_summary.outputs.existing_envs }}\\n```"
                   }
                 },
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "*🆕 \"${{ env.ENV_NAME }} was created\":*\n${{ steps.log_summary.outputs.created_envs }}"
+                    "text": "*🆕 \"${{ env.ENV_NAME }} was created\":*\n```\\n${{ steps.log_summary.outputs.created_envs }}\\n```"
                   }
                 },
                 {
@@ -258,31 +255,31 @@ jobs:
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "*👥 'admins' team access updated:*"
+                    "text": ":silhouettes: *'admins' team access updated:*"
                   }
                 },
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "*🔁 Role updated in:*\n${{ steps.log_summary.outputs.admin_team_updated }}"
+                    "text": ":arrows_counterclockwise: *Role updated in:*\n```\\n${{ steps.log_summary.outputs.admin_team_updated }}\\n```"
                   }
                 },
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "*🆕 Created in:*\n${{ steps.log_summary.outputs.admin_team_created }}"
+                    "text": ":new: *Created in:*\n```\\n${{ steps.log_summary.outputs.admin_team_created }}\\n```"
                   }
                 },
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "*✅ Already existed with correct role in:*\n${{ steps.log_summary.outputs.admin_team_ok }}"
+                    "text": ":white_check_mark: *Already existed with correct role in:*\n```\\n${{ steps.log_summary.outputs.admin_team_ok }}\\n```"
                   }
                 }
               ]
-            }
+            }        
         
         
