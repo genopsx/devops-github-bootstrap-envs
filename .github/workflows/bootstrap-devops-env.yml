@@ -142,6 +142,19 @@ jobs:
               gh api -X PUT repos/${{ matrix.org }}/$repo/environments/${ENV_NAME}
               echo "$repo" >> created_env.txt
 
+
+            ## -----------------------------
+             ## Ensure labels exist
+             ## -----------------------------
+             for label in automation env-bootstrap; do
+               if ! gh label list --repo "${{ matrix.org }}/$repo" | grep -q "^$label"; then
+                 echo "➕ Creating label '$label' in $repo"
+                 gh label create "$label" --repo "${{ matrix.org }}/$repo" --color FF9D00 --description "Added by bootstrap workflow"
+               else
+                 echo "✅ Label '$label' already exists in $repo"
+               fi
+             done
+
               ## Notify via GitHub Issue
               gh issue create \
                 --repo "${{ matrix.org }}/$repo" \
